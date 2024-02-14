@@ -1,0 +1,82 @@
+import cv2
+import numpy as np
+from pyzbar.pyzbar import decode
+import datetime
+import time
+
+# Load pre-trained face detection model
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+# Function to detect and store face along with name and roll number
+def detect_and_store_face(frame, name, roll_number):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    for (x, y, w, h) in faces:
+        face = frame[y:y+h, x:x+w]
+        # Draw rectangle around the face
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+        
+        # Write attendance information to a text file
+        with open('attendance.txt', 'a') as file:
+            file.write(f"{name}, {roll_number}, IN: {datetime.datetime.now()}\n")
+        
+    return frame
+
+# Function to recognize and mark attendance using roll number
+def recognize_and_mark_attendance(frame, name, roll_number):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    for (x, y, w, h) in faces:
+        face = frame[y:y+h, x:x+w]
+        # Draw rectangle around the face
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+        
+        # Write attendance information to a text file
+        with open('attendance.txt', 'a') as file:
+            file.write(f"{name}, {roll_number}, OUT: {datetime.datetime.now()}\n")
+        
+    return frame
+
+# Function to read barcode and get name and roll number
+def read_barcode(frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    barcodes = decode(gray)
+    for barcode in barcodes:
+        barcode_data = barcode.data.decode("utf-8")
+        # Split barcode data into name and roll number
+        name, roll_number = barcode_data.split(",")
+        return name, roll_number
+    return None, None
+
+# Main function
+def main():
+    # Open webcam
+    cap = cv2.VideoCapture(0)
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Read barcode to get name and roll number
+        name, roll_number = read_barcode(frame)
+
+        if name is not None and roll_number is not None:
+            # Detect and store face along with name and roll number
+            frame = detect_and_store_face(frame, name, roll_number)
+
+            # Recognize and mark attendance using roll number
+            frame = recognize_and_mark_attendance(frame, name, roll_number)
+
+        cv2.imshow('Face Recognition', frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+        # Add a 2-second delay between scans
+        time.sleep(2)
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()
